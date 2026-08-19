@@ -101,29 +101,59 @@ class TestRootEndpoint:
         response = client.get("/")
         assert response.status_code == 200
 
-    def test_returns_json_with_redirects_key(self, client: TestClient) -> None:
+    def test_returns_html_by_default(self, client: TestClient) -> None:
         response = client.get("/")
+        assert "text/html" in response.headers["content-type"]
+
+    def test_returns_json_with_accept_header(self, client: TestClient) -> None:
+        response = client.get("/", headers={"Accept": "application/json"})
         body = response.json()
         assert "redirects" in body
 
     def test_lists_enabled_redirects(self, client: TestClient) -> None:
-        response = client.get("/")
+        response = client.get("/", headers={"Accept": "application/json"})
         body = response.json()
         codes = [r["short_code"] for r in body["redirects"]]
         assert "heise" in codes
         assert "google" in codes
 
     def test_excludes_disabled_redirects(self, client: TestClient) -> None:
-        response = client.get("/")
+        response = client.get("/", headers={"Accept": "application/json"})
         body = response.json()
         codes = [r["short_code"] for r in body["redirects"]]
         assert "disabled" not in codes
 
     def test_includes_url_in_entries(self, client: TestClient) -> None:
-        response = client.get("/")
+        response = client.get("/", headers={"Accept": "application/json"})
         body = response.json()
         heise = next(r for r in body["redirects"] if r["short_code"] == "heise")
         assert heise["url"] == "https://www.heise.de"
+
+    def test_html_contains_shortcut_links(self, client: TestClient) -> None:
+        response = client.get("/")
+        assert 'href="/heise"' in response.text
+        assert 'href="/google"' in response.text
+
+    def test_html_has_table_structure(self, client: TestClient) -> None:
+        response = client.get("/")
+        assert "<table>" in response.text
+        assert "Shortcut" in response.text
+        assert "Destination" in response.text
+
+    def test_html_has_inline_css(self, client: TestClient) -> None:
+        response = client.get("/")
+        assert "<style>" in response.text
+
+    def test_html_shows_no_shortcuts_message_when_empty(self) -> None:
+        from redirector.repository import SqliteRedirectRepository
+        from redirector.routes import create_app
+
+        repo = SqliteRedirectRepository(":memory:")
+        app = create_app(repo)
+        empty_client = TestClient(app, follow_redirects=False)
+        response = empty_client.get("/")
+        assert "No public shortcuts" in response.text
+        repo.close()
 
 
 class TestRedirectEndpoint:

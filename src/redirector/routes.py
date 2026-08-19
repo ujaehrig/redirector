@@ -118,13 +118,17 @@ def create_app(
         return Response(status_code=204)
 
     @app.get("/", response_model=None)
-    def index() -> Response:  # pyright: ignore[reportUnusedFunction]
+    def index(request: Request) -> Response:  # pyright: ignore[reportUnusedFunction]
         """List all public redirects."""
         entries = repository.list_public()
         shortcuts = [
             {"short_code": e.short_code, "url": e.destination_url} for e in entries
         ]
-        return JSONResponse(content={"redirects": shortcuts})
+
+        if _wants_json(request):
+            return JSONResponse(content={"redirects": shortcuts})
+
+        return HTMLResponse(content=_render_index_html(shortcuts))
 
     # --- Authenticated API endpoints ---
 
@@ -387,5 +391,66 @@ def _render_404_html(short_code: str, suggestions: list[str]) -> str:
 <body>
     <h1>404 &mdash; Not Found</h1>
     <p>The shortcut <code>{short_code}</code> does not exist.</p>{suggestions_html}
+</body>
+</html>"""
+
+
+def _render_index_html(shortcuts: list[dict[str, str]]) -> str:
+    """Render the index HTML page listing public shortcuts.
+
+    Args:
+        shortcuts: List of dicts with short_code and url keys.
+
+    Returns:
+        HTML string for the index page.
+    """
+    if shortcuts:
+        rows = "\n".join(
+            f"        <tr>"
+            f'<td><a href="/{s["short_code"]}">{s["short_code"]}</a></td>'
+            f"<td>{s['url']}</td>"
+            f"</tr>"
+            for s in shortcuts
+        )
+        table = f"""
+    <table>
+        <thead>
+            <tr><th>Shortcut</th><th>Destination</th></tr>
+        </thead>
+        <tbody>
+{rows}
+        </tbody>
+    </table>"""
+    else:
+        table = "\n    <p>No public shortcuts configured.</p>"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Redirector</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                         Roboto, sans-serif;
+            max-width: 800px;
+            margin: 80px auto;
+            padding: 0 20px;
+            color: #333;
+        }}
+        h1 {{ color: #2c3e50; }}
+        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
+        th, td {{ text-align: left; padding: 10px 12px; }}
+        th {{ background: #2c3e50; color: white; }}
+        tr:nth-child(even) {{ background: #f8f9fa; }}
+        tr:hover {{ background: #ecf0f1; }}
+        a {{ color: #2980b9; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+    </style>
+</head>
+<body>
+    <h1>Redirector</h1>
+    <p>Public shortcuts available:</p>{table}
 </body>
 </html>"""

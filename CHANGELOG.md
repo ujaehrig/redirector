@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-08-19
+
+### Changed
+
+- `GET /` now returns a styled HTML page with a table of public
+  shortcuts for browsers (content-negotiated, JSON still available
+  via `Accept: application/json`)
+
 ## [0.3.0] - 2026-08-19
 
 ### Added
