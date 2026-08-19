@@ -27,6 +27,44 @@ uv run redirector
 Then open `http://localhost:8080/heise` to be redirected to
 `https://www.heise.de`.
 
+## Running with Docker
+
+```bash
+# Build the image
+docker build -t redirector .
+
+# Run with a local data directory for the database
+docker run -d -p 8080:8080 -v ./data:/data redirector
+```
+
+The SQLite database is stored at `/data/redirects.db` inside the
+container. Mount a host directory or Docker volume to `/data` to
+persist data across container restarts.
+
+To use the pre-built image from GitHub Container Registry:
+
+```bash
+docker run -d -p 8080:8080 -v ./data:/data ghcr.io/ujaehrig/redirector:main
+```
+
+Override configuration with environment variables:
+
+```bash
+docker run -d -p 9090:9090 \
+  -v ./data:/data \
+  -e PORT=9090 \
+  -e SUGGESTION_THRESHOLD=0.5 \
+  redirector
+```
+
+Manage entries using the CLI against the same database:
+
+```bash
+docker run --rm -v ./data:/data redirector \
+  python -m redirector.cli --db /data/redirects.db \
+  add heise https://www.heise.de --group engineering --public
+```
+
 ## Endpoints
 
 ### Public (no auth required)
