@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-08-19
+
+### Added
+
+- Dockerfile with multi-stage build (uv from ghcr.io/astral-sh/uv,
+  python:3.13-slim runtime)
+- Docker volume at `/data` for external SQLite database
+- `.dockerignore` to keep image lean
+- GitHub Actions workflow to build and push image to ghcr.io
+- `httpx` promoted to runtime dependency (used by auth and CLI api mode)
+
 ## [0.3.1] - 2026-08-19
 
 ### Changed
