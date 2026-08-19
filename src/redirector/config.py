@@ -9,11 +9,24 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    # Server
     port: int = 8080
     db_backend: Literal["sqlite", "dynamodb"] = "sqlite"
     sqlite_path: str = "./redirects.db"
     dynamodb_table: str = "redirects"
     aws_region: str = "eu-central-1"
+
+    # JWT Authentication
+    jwks_url: str = ""
+    jwt_issuer: str = ""
+    jwt_audience: str = ""
+    jwt_groups_claim: str = "groups"
+    admin_group: str = "admin"
+
+    # CLI mode
+    cli_mode: Literal["local", "api"] = "local"
+    api_url: str = "http://localhost:8080"
+    api_token: str = ""
 
     @field_validator("port")
     @classmethod

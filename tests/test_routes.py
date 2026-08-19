@@ -25,15 +25,39 @@ def seeded_repo(repo: SqliteRedirectRepository) -> SqliteRedirectRepository:
     conn = repo.connection
     conn.execute(
         INSERT_REDIRECT_SQL,
-        ("heise", "https://www.heise.de", 302, "2024-01-15T10:30:00+00:00", 1),
+        (
+            "heise",
+            "https://www.heise.de",
+            302,
+            "2024-01-15T10:30:00+00:00",
+            1,
+            "engineering",
+            1,
+        ),
     )
     conn.execute(
         INSERT_REDIRECT_SQL,
-        ("google", "https://www.google.com", 301, "2024-01-15T11:00:00+00:00", 1),
+        (
+            "google",
+            "https://www.google.com",
+            301,
+            "2024-01-15T11:00:00+00:00",
+            1,
+            "engineering",
+            1,
+        ),
     )
     conn.execute(
         INSERT_REDIRECT_SQL,
-        ("disabled", "https://example.com", 302, "2024-01-15T12:00:00+00:00", 0),
+        (
+            "disabled",
+            "https://example.com",
+            302,
+            "2024-01-15T12:00:00+00:00",
+            0,
+            "marketing",
+            0,
+        ),
     )
     conn.commit()
     return repo

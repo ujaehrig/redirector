@@ -3,6 +3,6 @@
 INSERT_REDIRECT_SQL = (
     "INSERT INTO redirects"
     " (short_code, destination_url, status_code,"
-    " created_at, enabled)"
-    " VALUES (?, ?, ?, ?, ?)"
+    " created_at, enabled, owner_group, public)"
+    " VALUES (?, ?, ?, ?, ?, ?, ?)"
 )

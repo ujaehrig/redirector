@@ -17,7 +17,18 @@ Build the complete local redirector application:
 4. CLI management tool
 5. Integration and polish
 
-### Phase 2: AWS Deployment (Deferred)
+### Phase 2: Multi-Tenancy (Current)
+
+Add user authentication, group-based scoping, and management API:
+
+1. JWT authentication module (JWKS, token validation)
+2. Data model extension (group ownership, public flag)
+3. Authenticated management API (CRUD under /api/)
+4. Root endpoint scoped to public shortcuts only
+5. CLI dual mode (local direct-DB, api with Bearer token)
+6. OpenAPI documentation
+
+### Phase 3: AWS Deployment (Deferred)
 
 Add Lambda compatibility and DynamoDB:
 
@@ -26,7 +37,7 @@ Add Lambda compatibility and DynamoDB:
 3. Infrastructure as Code (CDK/SAM/Terraform)
 4. CI/CD pipeline
 
-### Phase 3: Enhancements (Deferred)
+### Phase 4: Enhancements (Deferred)
 
 Optional improvements:
 

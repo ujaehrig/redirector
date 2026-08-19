@@ -8,6 +8,8 @@ dependencies = [
     "uvicorn>=0.32.0",
     "pydantic-settings>=2.6.0",
     "click>=8.1.0",
+    "pyjwt>=2.13.0",
+    "cryptography>=50.0.0",
 ]
 
 [project.scripts]
@@ -29,6 +31,7 @@ dev = [
     "ruff>=0.8.0",
     "pyright>=1.1.390",
     "httpx2>=2.12.0",
+    "respx>=0.23.1",
 ]
 
 [tool.pytest.ini_options]
@@ -41,6 +44,9 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/redirector/routes.py" = ["B008"]  # Depends() in defaults is FastAPI convention
 
 [tool.pyright]
 pythonVersion = "3.12"

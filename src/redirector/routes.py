@@ -1,25 +1,106 @@
 """HTTP route handlers."""
 
 import logging
+import re
 
-from fastapi import FastAPI, Response
+from fastapi import Depends, FastAPI, Header, Response
 from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel, field_validator
 
+from redirector.auth import User
 from redirector.repository import RedirectRepository
 
 logger = logging.getLogger(__name__)
 
+RESERVED_PATHS = {"health", "favicon.ico"}
+SHORT_CODE_PATTERN = re.compile(r"^[a-z0-9_-]+$")
+MAX_SHORT_CODE_LENGTH = 128
 
-def create_app(repository: RedirectRepository) -> FastAPI:
+
+class CreateRedirectRequest(BaseModel):
+    """Request body for creating a redirect."""
+
+    short_code: str
+    url: str
+    group: str
+    status_code: int = 302
+    public: bool = False
+
+    @field_validator("short_code")
+    @classmethod
+    def validate_short_code(cls, v: str) -> str:
+        """Validate the short code format."""
+        v = v.lower()
+        if not v or len(v) > MAX_SHORT_CODE_LENGTH:
+            msg = f"Short code must be between 1 and {MAX_SHORT_CODE_LENGTH} characters"
+            raise ValueError(msg)
+        if not SHORT_CODE_PATTERN.match(v):
+            msg = "Only lowercase alphanumeric, hyphens, and underscores allowed"
+            raise ValueError(msg)
+        if v in RESERVED_PATHS:
+            msg = f"'{v}' is a reserved path"
+            raise ValueError(msg)
+        return v
+
+
+class PatchRedirectRequest(BaseModel):
+    """Request body for updating a redirect."""
+
+    enabled: bool
+
+
+class RedirectResponseModel(BaseModel):
+    """Response body for a redirect entry."""
+
+    short_code: str
+    url: str
+    status_code: int
+    owner_group: str | None
+    public: bool
+    enabled: bool
+
+
+def create_app(
+    repository: RedirectRepository,
+    user_override: User | None = None,
+) -> FastAPI:
     """Create the FastAPI application with routes.
 
     Args:
         repository: The redirect repository to use for lookups.
+        user_override: If set, bypass auth and use this user.
+            Used for testing. Pass None to require real auth.
 
     Returns:
         A configured FastAPI application.
     """
-    app = FastAPI(title="Redirector", version="0.1.0")
+    app = FastAPI(
+        title="Redirector",
+        version="0.1.0",
+        description=(
+            "A minimal URL redirection service with group-based multi-tenancy."
+        ),
+    )
+
+    def get_current_user(
+        authorization: str | None = Header(default=None),
+    ) -> User | None:
+        """Extract user from auth header or return override."""
+        if user_override is not None:
+            return user_override
+        # In production, this would validate the JWT token.
+        # For now, return None (unauthenticated) if no override.
+        return None
+
+    def require_user(
+        user: User | None = Depends(get_current_user),
+    ) -> User:
+        """Require an authenticated user or raise 401."""
+        if user is None:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=401, detail="Authentication required")
+        return user
 
     @app.get("/health")
     def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
@@ -33,12 +114,139 @@ def create_app(repository: RedirectRepository) -> FastAPI:
 
     @app.get("/", response_model=None)
     def index() -> Response:  # pyright: ignore[reportUnusedFunction]
-        """List all available redirects."""
-        entries = repository.list_redirects()
+        """List all public redirects."""
+        entries = repository.list_public()
         shortcuts = [
             {"short_code": e.short_code, "url": e.destination_url} for e in entries
         ]
         return JSONResponse(content={"redirects": shortcuts})
+
+    # --- Authenticated API endpoints ---
+
+    @app.get("/api/redirects", response_model=None)
+    def api_list_redirects(  # pyright: ignore[reportUnusedFunction]
+        user: User = Depends(require_user),
+    ) -> Response:
+        """List redirects visible to the authenticated user."""
+        entries = repository.list_by_groups(user.groups)
+        redirects = [
+            RedirectResponseModel(
+                short_code=e.short_code,
+                url=e.destination_url,
+                status_code=e.status_code,
+                owner_group=e.owner_group,
+                public=e.public,
+                enabled=e.enabled,
+            ).model_dump()
+            for e in entries
+        ]
+        return JSONResponse(content={"redirects": redirects})
+
+    @app.post("/api/redirects", response_model=None, status_code=201)
+    def api_create_redirect(  # pyright: ignore[reportUnusedFunction]
+        body: CreateRedirectRequest,
+        user: User = Depends(require_user),
+    ) -> Response:
+        """Create a new redirect entry."""
+        # Check user belongs to the target group (or is admin)
+        if not user.is_admin and body.group not in user.groups:
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Not a member of the target group"},
+            )
+
+        # Check for duplicates
+        existing = repository.get_redirect(body.short_code)
+        if existing is not None:
+            return JSONResponse(
+                status_code=409,
+                content={"error": f"Short code '{body.short_code}' already exists"},
+            )
+
+        entry = repository.add_redirect(
+            short_code=body.short_code,
+            destination_url=body.url,
+            status_code=body.status_code,
+            owner_group=body.group,
+            public=body.public,
+        )
+        return JSONResponse(
+            status_code=201,
+            content=RedirectResponseModel(
+                short_code=entry.short_code,
+                url=entry.destination_url,
+                status_code=entry.status_code,
+                owner_group=entry.owner_group,
+                public=entry.public,
+                enabled=entry.enabled,
+            ).model_dump(),
+        )
+
+    @app.delete("/api/redirects/{short_code}", response_model=None)
+    def api_delete_redirect(  # pyright: ignore[reportUnusedFunction]
+        short_code: str,
+        user: User = Depends(require_user),
+    ) -> Response:
+        """Delete a redirect entry."""
+        entry = repository.get_redirect(short_code)
+        if entry is None:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "not found"},
+            )
+
+        # Check ownership
+        if (
+            not user.is_admin
+            and entry.owner_group is not None
+            and entry.owner_group not in user.groups
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Not authorized to manage this entry"},
+            )
+
+        repository.delete_redirect(short_code)
+        return Response(status_code=204)
+
+    @app.patch("/api/redirects/{short_code}", response_model=None)
+    def api_patch_redirect(  # pyright: ignore[reportUnusedFunction]
+        short_code: str,
+        body: PatchRedirectRequest,
+        user: User = Depends(require_user),
+    ) -> Response:
+        """Enable or disable a redirect entry."""
+        entry = repository.get_redirect(short_code)
+        if entry is None:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "not found"},
+            )
+
+        # Check ownership
+        if (
+            not user.is_admin
+            and entry.owner_group is not None
+            and entry.owner_group not in user.groups
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Not authorized to manage this entry"},
+            )
+
+        repository.set_enabled(short_code, enabled=body.enabled)
+        updated = repository.get_redirect(short_code)
+        assert updated is not None
+        return JSONResponse(
+            content=RedirectResponseModel(
+                short_code=updated.short_code,
+                url=updated.destination_url,
+                status_code=updated.status_code,
+                owner_group=updated.owner_group,
+                public=updated.public,
+                enabled=updated.enabled,
+            ).model_dump(),
+        )
 
     @app.get("/{short_code:path}", response_model=None)
     def redirect(short_code: str) -> Response:  # pyright: ignore[reportUnusedFunction]

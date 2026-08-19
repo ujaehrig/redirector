@@ -34,17 +34,35 @@ def seeded_db(db_path: str) -> str:
             destination_url TEXT NOT NULL,
             status_code INTEGER NOT NULL DEFAULT 302,
             created_at TEXT NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 1
+            enabled INTEGER NOT NULL DEFAULT 1,
+            owner_group TEXT,
+            public INTEGER NOT NULL DEFAULT 1
         )
         """
     )
     conn.execute(
         INSERT_REDIRECT_SQL,
-        ("heise", "https://www.heise.de", 302, "2024-01-15T10:30:00+00:00", 1),
+        (
+            "heise",
+            "https://www.heise.de",
+            302,
+            "2024-01-15T10:30:00+00:00",
+            1,
+            "engineering",
+            1,
+        ),
     )
     conn.execute(
         INSERT_REDIRECT_SQL,
-        ("google", "https://www.google.com", 301, "2024-01-15T11:00:00+00:00", 1),
+        (
+            "google",
+            "https://www.google.com",
+            301,
+            "2024-01-15T11:00:00+00:00",
+            1,
+            "engineering",
+            1,
+        ),
     )
     conn.commit()
     conn.close()

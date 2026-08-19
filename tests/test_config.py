@@ -99,3 +99,63 @@ class TestSettingsValidation:
         with patch.dict(os.environ, {"DB_BACKEND": "dynamodb"}, clear=True):
             settings = Settings()
         assert settings.db_backend == "dynamodb"
+
+
+class TestSettingsJwtDefaults:
+    """Test JWT configuration defaults."""
+
+    def test_default_jwks_url(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.jwks_url == ""
+
+    def test_default_jwt_issuer(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.jwt_issuer == ""
+
+    def test_default_jwt_audience(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.jwt_audience == ""
+
+    def test_default_jwt_groups_claim(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.jwt_groups_claim == "groups"
+
+    def test_default_admin_group(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.admin_group == "admin"
+
+
+class TestSettingsCliDefaults:
+    """Test CLI configuration defaults."""
+
+    def test_default_cli_mode(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.cli_mode == "local"
+
+    def test_default_api_url(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.api_url == "http://localhost:8080"
+
+    def test_default_api_token(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.api_token == ""
+
+    def test_cli_mode_from_env(self) -> None:
+        with patch.dict(os.environ, {"CLI_MODE": "api"}, clear=True):
+            settings = Settings()
+        assert settings.cli_mode == "api"
+
+    def test_cli_mode_must_be_valid(self) -> None:
+        with (
+            patch.dict(os.environ, {"CLI_MODE": "invalid"}, clear=True),
+            pytest.raises(ValueError),
+        ):
+            Settings()
