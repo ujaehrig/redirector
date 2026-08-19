@@ -3,12 +3,13 @@
 import logging
 import re
 
-from fastapi import Depends, FastAPI, Header, Response
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import Depends, FastAPI, Header, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
 
 from redirector.auth import User
 from redirector.repository import RedirectRepository
+from redirector.suggestions import find_suggestions
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,8 @@ class RedirectResponseModel(BaseModel):
 def create_app(
     repository: RedirectRepository,
     user_override: User | None = None,
+    suggestion_threshold: float = 0.6,
+    max_suggestions: int = 5,
 ) -> FastAPI:
     """Create the FastAPI application with routes.
 
@@ -70,6 +73,8 @@ def create_app(
         repository: The redirect repository to use for lookups.
         user_override: If set, bypass auth and use this user.
             Used for testing. Pass None to require real auth.
+        suggestion_threshold: Minimum similarity for suggestions.
+        max_suggestions: Maximum number of suggestions to show.
 
     Returns:
         A configured FastAPI application.
@@ -249,16 +254,19 @@ def create_app(
         )
 
     @app.get("/{short_code:path}", response_model=None)
-    def redirect(short_code: str) -> Response:  # pyright: ignore[reportUnusedFunction]
+    def redirect(short_code: str, request: Request) -> Response:  # pyright: ignore[reportUnusedFunction]
         """Look up a short code and redirect to the destination URL."""
         normalized = short_code.lower()
         entry = repository.get_redirect(normalized)
 
         if entry is None or not entry.enabled:
             logger.info("Short code not found or disabled: %s", normalized)
-            return JSONResponse(
-                status_code=404,
-                content={"error": "not found"},
+            return _not_found_response(
+                normalized,
+                request,
+                repository,
+                suggestion_threshold,
+                max_suggestions,
             )
 
         logger.info(
@@ -273,3 +281,111 @@ def create_app(
         )
 
     return app
+
+
+def _wants_json(request: Request) -> bool:
+    """Check if the client prefers JSON over HTML.
+
+    Args:
+        request: The incoming HTTP request.
+
+    Returns:
+        True if the client explicitly requests application/json.
+    """
+    accept = request.headers.get("accept", "")
+    return "application/json" in accept
+
+
+def _not_found_response(
+    short_code: str,
+    request: Request,
+    repository: RedirectRepository,
+    threshold: float,
+    max_results: int,
+) -> Response:
+    """Build a 404 response with suggestions.
+
+    Args:
+        short_code: The short code that was not found.
+        request: The incoming HTTP request (for content negotiation).
+        repository: Repository to get public entries for suggestions.
+        threshold: Minimum similarity for fuzzy matches.
+        max_results: Maximum number of suggestions.
+
+    Returns:
+        JSON or HTML 404 response with suggestions.
+    """
+    public_entries = repository.list_public()
+    candidates = [e.short_code for e in public_entries]
+    suggestions = find_suggestions(
+        short_code, candidates, threshold=threshold, max_results=max_results
+    )
+
+    if _wants_json(request):
+        return JSONResponse(
+            status_code=404,
+            content={"error": "not found", "suggestions": suggestions},
+        )
+
+    return HTMLResponse(
+        status_code=404,
+        content=_render_404_html(short_code, suggestions),
+    )
+
+
+def _render_404_html(short_code: str, suggestions: list[str]) -> str:
+    """Render the 404 HTML error page.
+
+    Args:
+        short_code: The short code that was not found.
+        suggestions: List of suggested short codes.
+
+    Returns:
+        HTML string for the error page.
+    """
+    suggestions_html = ""
+    if suggestions:
+        links = "\n".join(
+            f'        <li><a href="/{s}">{s}</a></li>' for s in suggestions
+        )
+        suggestions_html = f"""
+    <p>Did you mean:</p>
+    <ul>
+{links}
+    </ul>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Not Found</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                         Roboto, sans-serif;
+            max-width: 600px;
+            margin: 80px auto;
+            padding: 0 20px;
+            color: #333;
+        }}
+        h1 {{ color: #c0392b; }}
+        a {{ color: #2980b9; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+        ul {{ list-style: none; padding: 0; }}
+        li {{ margin: 8px 0; }}
+        li a {{
+            display: inline-block;
+            padding: 6px 12px;
+            background: #ecf0f1;
+            border-radius: 4px;
+        }}
+        li a:hover {{ background: #d5dbdb; }}
+        code {{ background: #f8f9fa; padding: 2px 6px; border-radius: 3px; }}
+    </style>
+</head>
+<body>
+    <h1>404 &mdash; Not Found</h1>
+    <p>The shortcut <code>{short_code}</code> does not exist.</p>{suggestions_html}
+</body>
+</html>"""

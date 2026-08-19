@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     api_url: str = "http://localhost:8080"
     api_token: str = ""
 
+    # 404 suggestions
+    suggestion_threshold: float = 0.6
+    max_suggestions: int = 5
+
     @field_validator("port")
     @classmethod
     def port_must_be_valid(cls, v: int) -> int:

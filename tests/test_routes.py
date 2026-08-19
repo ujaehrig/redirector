@@ -140,14 +140,14 @@ class TestRedirectEndpoint:
         assert response.headers["location"] == "https://www.google.com"
 
     def test_returns_404_when_not_found(self, client: TestClient) -> None:
-        response = client.get("/nonexistent")
+        response = client.get("/nonexistent", headers={"Accept": "application/json"})
         assert response.status_code == 404
-        assert response.json() == {"error": "not found"}
+        assert response.json()["error"] == "not found"
 
     def test_returns_404_when_disabled(self, client: TestClient) -> None:
-        response = client.get("/disabled")
+        response = client.get("/disabled", headers={"Accept": "application/json"})
         assert response.status_code == 404
-        assert response.json() == {"error": "not found"}
+        assert response.json()["error"] == "not found"
 
     def test_normalizes_case(self, client: TestClient) -> None:
         response = client.get("/HEISE")
@@ -164,11 +164,11 @@ class TestNotFoundResponse:
     """Test 404 response format."""
 
     def test_content_type_is_json(self, client: TestClient) -> None:
-        response = client.get("/nonexistent")
+        response = client.get("/nonexistent", headers={"Accept": "application/json"})
         assert response.headers["content-type"] == "application/json"
 
     def test_body_has_error_key(self, client: TestClient) -> None:
-        response = client.get("/nonexistent")
+        response = client.get("/nonexistent", headers={"Accept": "application/json"})
         body = response.json()
         assert "error" in body
         assert body["error"] == "not found"

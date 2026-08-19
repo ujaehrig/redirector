@@ -159,3 +159,27 @@ class TestSettingsCliDefaults:
             pytest.raises(ValueError),
         ):
             Settings()
+
+
+class TestSettingsSuggestionDefaults:
+    """Test suggestion configuration defaults."""
+
+    def test_default_suggestion_threshold(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.suggestion_threshold == 0.6
+
+    def test_default_max_suggestions(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings()
+        assert settings.max_suggestions == 5
+
+    def test_suggestion_threshold_from_env(self) -> None:
+        with patch.dict(os.environ, {"SUGGESTION_THRESHOLD": "0.8"}, clear=True):
+            settings = Settings()
+        assert settings.suggestion_threshold == 0.8
+
+    def test_max_suggestions_from_env(self) -> None:
+        with patch.dict(os.environ, {"MAX_SUGGESTIONS": "10"}, clear=True):
+            settings = Settings()
+        assert settings.max_suggestions == 10
