@@ -2,6 +2,7 @@
 
 import logging
 import re
+from importlib.metadata import version as pkg_version
 
 from fastapi import Depends, FastAPI, Header, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -12,6 +13,8 @@ from redirector.repository import RedirectRepository
 from redirector.suggestions import find_suggestions
 
 logger = logging.getLogger(__name__)
+
+APP_VERSION = pkg_version("redirector")
 
 RESERVED_PATHS = {"health", "favicon.ico"}
 SHORT_CODE_PATTERN = re.compile(r"^[a-z0-9_-]+$")
@@ -110,7 +113,7 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """Health check endpoint."""
-        return {"status": "ok"}
+        return {"status": "ok", "version": APP_VERSION}
 
     @app.get("/favicon.ico", response_model=None)
     def favicon() -> Response:  # pyright: ignore[reportUnusedFunction]

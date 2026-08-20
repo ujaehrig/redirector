@@ -79,7 +79,9 @@ class TestHealthEndpoint:
 
     def test_returns_status_ok(self, client: TestClient) -> None:
         response = client.get("/health")
-        assert response.json() == {"status": "ok"}
+        body = response.json()
+        assert body["status"] == "ok"
+        assert "version" in body
 
 
 class TestFaviconEndpoint:
