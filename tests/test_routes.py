@@ -131,20 +131,24 @@ class TestRootEndpoint:
 
     def test_html_contains_shortcut_links(self, client: TestClient) -> None:
         response = client.get("/")
-        assert 'href="/heise"' in response.text
-        assert 'href="/google"' in response.text
+        # Shortcuts are embedded as JSON for client-side filtering
+        assert '"short_code": "heise"' in response.text
+        assert '"short_code": "google"' in response.text
 
-    def test_html_has_table_structure(self, client: TestClient) -> None:
+    def test_html_has_search_input(self, client: TestClient) -> None:
         response = client.get("/")
-        assert "<table>" in response.text
-        assert "Shortcut" in response.text
-        assert "Destination" in response.text
+        assert 'id="search"' in response.text
+        assert "placeholder" in response.text
 
     def test_html_has_inline_css(self, client: TestClient) -> None:
         response = client.get("/")
         assert "<style>" in response.text
 
-    def test_html_shows_no_shortcuts_message_when_empty(self) -> None:
+    def test_html_has_javascript(self, client: TestClient) -> None:
+        response = client.get("/")
+        assert "<script>" in response.text
+
+    def test_html_shows_empty_page_when_no_shortcuts(self) -> None:
         from redirector.repository import SqliteRedirectRepository
         from redirector.routes import create_app
 
@@ -152,7 +156,9 @@ class TestRootEndpoint:
         app = create_app(repo)
         empty_client = TestClient(app, follow_redirects=False)
         response = empty_client.get("/")
-        assert "No public shortcuts" in response.text
+        # Should still render the search UI with empty data
+        assert 'id="search"' in response.text
+        assert "shortcuts = []" in response.text
         repo.close()
 
 

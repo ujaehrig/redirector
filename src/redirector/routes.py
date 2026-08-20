@@ -396,33 +396,17 @@ def _render_404_html(short_code: str, suggestions: list[str]) -> str:
 
 
 def _render_index_html(shortcuts: list[dict[str, str]]) -> str:
-    """Render the index HTML page listing public shortcuts.
+    """Render the index HTML page with search interface.
 
     Args:
         shortcuts: List of dicts with short_code and url keys.
 
     Returns:
-        HTML string for the index page.
+        HTML string for the index page with search functionality.
     """
-    if shortcuts:
-        rows = "\n".join(
-            f"        <tr>"
-            f'<td><a href="/{s["short_code"]}">{s["short_code"]}</a></td>'
-            f"<td>{s['url']}</td>"
-            f"</tr>"
-            for s in shortcuts
-        )
-        table = f"""
-    <table>
-        <thead>
-            <tr><th>Shortcut</th><th>Destination</th></tr>
-        </thead>
-        <tbody>
-{rows}
-        </tbody>
-    </table>"""
-    else:
-        table = "\n    <p>No public shortcuts configured.</p>"
+    import json
+
+    shortcuts_json = json.dumps(shortcuts)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -434,23 +418,85 @@ def _render_index_html(shortcuts: list[dict[str, str]]) -> str:
         body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
                          Roboto, sans-serif;
-            max-width: 800px;
+            max-width: 600px;
             margin: 80px auto;
             padding: 0 20px;
             color: #333;
         }}
         h1 {{ color: #2c3e50; }}
-        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
-        th, td {{ text-align: left; padding: 10px 12px; }}
-        th {{ background: #2c3e50; color: white; }}
-        tr:nth-child(even) {{ background: #f8f9fa; }}
-        tr:hover {{ background: #ecf0f1; }}
-        a {{ color: #2980b9; text-decoration: none; }}
-        a:hover {{ text-decoration: underline; }}
+        #search {{
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            outline: none;
+            box-sizing: border-box;
+        }}
+        #search:focus {{ border-color: #2980b9; }}
+        #results {{
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 12px;
+        }}
+        .result {{
+            display: block;
+            padding: 10px 14px;
+            border-bottom: 1px solid #ecf0f1;
+            text-decoration: none;
+            color: #333;
+        }}
+        .result:hover {{ background: #ecf0f1; }}
+        .result-code {{
+            font-weight: 600;
+            color: #2980b9;
+        }}
+        .result-url {{
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-left: 8px;
+        }}
+        .empty {{ color: #95a5a6; padding: 20px 0; text-align: center; }}
     </style>
 </head>
 <body>
     <h1>Redirector</h1>
-    <p>Public shortcuts available:</p>{table}
+    <input type="text" id="search" placeholder="Type to search shortcuts..."
+           autocomplete="off" autofocus>
+    <div id="results"></div>
+    <script>
+        const shortcuts = {shortcuts_json};
+        const searchInput = document.getElementById('search');
+        const resultsDiv = document.getElementById('results');
+
+        function truncate(str, max) {{
+            return str.length > max ? str.substring(0, max) + '...' : str;
+        }}
+
+        function render(matches) {{
+            if (matches.length === 0) {{
+                resultsDiv.innerHTML = '<div class="empty">No matches found.</div>';
+                return;
+            }}
+            resultsDiv.innerHTML = matches.map(function(s) {{
+                return '<a class="result" href="/' + s.short_code + '">'
+                    + '<span class="result-code">' + s.short_code + '</span>'
+                    + '<span class="result-url">' + truncate(s.url, 60) + '</span>'
+                    + '</a>';
+            }}).join('');
+        }}
+
+        searchInput.addEventListener('input', function() {{
+            const query = this.value.toLowerCase();
+            if (!query) {{
+                resultsDiv.innerHTML = '';
+                return;
+            }}
+            const matches = shortcuts.filter(function(s) {{
+                return s.short_code.includes(query);
+            }});
+            render(matches);
+        }});
+    </script>
 </body>
 </html>"""
