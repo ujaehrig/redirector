@@ -11,6 +11,8 @@ dependencies = [
     "pyjwt>=2.13.0",
     "cryptography>=50.0.0",
     "httpx>=0.28.1",
+    "mangum>=0.21.0",
+    "boto3>=1.43.77",
 ]
 
 [project.scripts]
@@ -33,11 +35,16 @@ dev = [
     "pyright>=1.1.390",
     "httpx2>=2.12.0",
     "respx>=0.23.1",
+    "moto[dynamodb]>=5.2.2",
+    "boto3-stubs[dynamodb]>=1.43.77",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=redirector --cov-report=term-missing --cov-branch"
+filterwarnings = [
+    "ignore:There is no current event loop:DeprecationWarning",
+]
 
 [tool.ruff]
 src = ["src"]
@@ -54,3 +61,5 @@ pythonVersion = "3.12"
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "strict"
+include = ["src"]
+exclude = ["tests"]

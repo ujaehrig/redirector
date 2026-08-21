@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Redirector - A minimal URL redirection service
+
+Parameters:
+  JwtIssuer:
+    Type: String
+    Description: JWT token issuer URL
+  JwtAudience:
+    Type: String
+    Description: JWT token audience (client ID)
+  JwksUrl:
+    Type: String
+    Description: JWKS endpoint URL for token verification
+  JwtGroupsClaim:
+    Type: String
+    Default: groups
+    Description: JWT claim containing group membership
+  AdminGroup:
+    Type: String
+    Default: admin
+    Description: Group name with admin privileges
+  SuggestionThreshold:
+    Type: String
+    Default: "0.6"
+    Description: Minimum similarity ratio for suggestions
+  MaxSuggestions:
+    Type: String
+    Default: "5"
+    Description: Maximum number of suggestions shown
+
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: python3.13
+    MemorySize: 256
+
+Resources:
+  RedirectsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-redirects"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: short_code
+          AttributeType: S
+      KeySchema:
+        - AttributeName: short_code
+          KeyType: HASH
+
+  RedirectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: redirector.lambda_handler.handler
+      CodeUri: .
+      Environment:
+        Variables:
+          DB_BACKEND: dynamodb
+          DYNAMODB_TABLE: !Ref RedirectsTable
+          AWS_REGION_NAME: !Ref AWS::Region
+          JWT_ISSUER: !Ref JwtIssuer
+          JWT_AUDIENCE: !Ref JwtAudience
+          JWKS_URL: !Ref JwksUrl
+          JWT_GROUPS_CLAIM: !Ref JwtGroupsClaim
+          ADMIN_GROUP: !Ref AdminGroup
+          SUGGESTION_THRESHOLD: !Ref SuggestionThreshold
+          MAX_SUGGESTIONS: !Ref MaxSuggestions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RedirectsTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            ApiId: !Ref HttpApi
+            Auth:
+              Authorizer: NONE
+        Root:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: GET
+            ApiId: !Ref HttpApi
+            Auth:
+              Authorizer: NONE
+        ApiManagement:
+          Type: HttpApi
+          Properties:
+            Path: /api/{proxy+}
+            Method: ANY
+            ApiId: !Ref HttpApi
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      Auth:
+        DefaultAuthorizer: JwtAuthorizer
+        Authorizers:
+          JwtAuthorizer:
+            AuthorizationScopes: []
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Ref JwtIssuer
+              audience:
+                - !Ref JwtAudience
+
+Outputs:
+  ApiUrl:
+    Description: URL of the HTTP API
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  RedirectsTableName:
+    Description: Name of the DynamoDB table
+    Value: !Ref RedirectsTable

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     db_backend: Literal["sqlite", "dynamodb"] = "sqlite"
     sqlite_path: str = "./redirects.db"
     dynamodb_table: str = "redirects"
+    dynamodb_endpoint_url: str = ""
     aws_region: str = "eu-central-1"
 
     # JWT Authentication

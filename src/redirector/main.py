@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from redirector.config import Settings
-from redirector.repository import SqliteRedirectRepository
+from redirector.repository_factory import create_repository
 from redirector.routes import create_app
 
 logging.basicConfig(
@@ -27,8 +27,12 @@ def create_application(settings: Settings | None = None) -> FastAPI:
     """
     if settings is None:
         settings = Settings()
-    repository = SqliteRedirectRepository(settings.sqlite_path)
-    return create_app(repository)
+    repository = create_repository(settings)
+    return create_app(
+        repository,
+        suggestion_threshold=settings.suggestion_threshold,
+        max_suggestions=settings.max_suggestions,
+    )
 
 
 def main() -> None:
