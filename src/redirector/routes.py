@@ -1,6 +1,7 @@
 """HTTP route handlers."""
 
 import logging
+import os
 import re
 from importlib.metadata import version as pkg_version
 
@@ -14,7 +15,30 @@ from redirector.suggestions import find_suggestions
 
 logger = logging.getLogger(__name__)
 
-APP_VERSION = pkg_version("redirector")
+
+def resolve_version() -> str:
+    """Resolve the running application version.
+
+    Prefers the version baked into the container image via the file named
+    by the ``APP_VERSION_FILE`` environment variable (typically containing a
+    build-specific string such as ``0.4.0+gabc1234``). Falls back to the
+    installed package metadata version when the env var is unset, the file is
+    missing, or the file is empty.
+
+    Returns:
+        The resolved version string.
+    """
+    version_file = os.environ.get("APP_VERSION_FILE")
+    if version_file:
+        try:
+            with open(version_file, encoding="utf-8") as fh:
+                content = fh.read().strip()
+        except OSError:
+            content = ""
+        if content:
+            return content
+    return pkg_version("redirector")
+
 
 RESERVED_PATHS = {"health", "favicon.ico"}
 SHORT_CODE_PATTERN = re.compile(r"^[a-z0-9_-]+$")
@@ -113,7 +137,7 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """Health check endpoint."""
-        return {"status": "ok", "version": APP_VERSION}
+        return {"status": "ok", "version": resolve_version()}
 
     @app.get("/favicon.ico", response_model=None)
     def favicon() -> Response:  # pyright: ignore[reportUnusedFunction]

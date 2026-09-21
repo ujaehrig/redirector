@@ -1,6 +1,7 @@
 """Tests for HTTP route handlers."""
 
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -82,6 +83,17 @@ class TestHealthEndpoint:
         body = response.json()
         assert body["status"] == "ok"
         assert "version" in body
+
+    def test_reports_version_from_env_file(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The health endpoint should reflect APP_VERSION_FILE at request time,
+        # so a Docker image can bake a build-specific version into it.
+        version_file = tmp_path / ".version"
+        version_file.write_text("9.9.9+gdeadbee\n")
+        monkeypatch.setenv("APP_VERSION_FILE", str(version_file))
+        response = client.get("/health")
+        assert response.json()["version"] == "9.9.9+gdeadbee"
 
 
 class TestFaviconEndpoint:

@@ -10,10 +10,12 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY src/ src/
 RUN uv sync --frozen --no-dev --no-editable
 
+ARG GIT_SHA=""
 RUN python -c \
     "import tomllib; \
      v=tomllib.load(open('pyproject.toml','rb'))['project']['version']; \
-     print(v)" > /app/.version
+     sha='${GIT_SHA}'.strip(); \
+     print(v + ('+g' + sha[:7] if sha else ''))" > /app/.version
 
 
 FROM python:3.13-slim
@@ -28,8 +30,11 @@ ENV SQLITE_PATH=/data/redirects.db
 ENV PORT=8080
 ENV APP_VERSION_FILE=/app/.version
 
+ARG GIT_SHA=""
+
 LABEL org.opencontainers.image.title="Redirector"
 LABEL org.opencontainers.image.description="A minimal URL redirection service"
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
 
 EXPOSE 8080
 
