@@ -150,6 +150,19 @@ class TestRootEndpoint:
         response = client.get("/")
         assert "<script>" in response.text
 
+    def test_html_has_keyboard_navigation(self, client: TestClient) -> None:
+        response = client.get("/")
+        # Keydown handler drives cursor up/down + Enter selection.
+        assert "keydown" in response.text
+        assert "ArrowDown" in response.text
+        assert "ArrowUp" in response.text
+        assert "Enter" in response.text
+
+    def test_html_has_active_result_style(self, client: TestClient) -> None:
+        response = client.get("/")
+        # Highlighted result needs a visible style hook.
+        assert "result-active" in response.text
+
     def test_html_shows_empty_page_when_no_shortcuts(self) -> None:
         from redirector.repository import SqliteRedirectRepository
         from redirector.routes import create_app

@@ -450,6 +450,8 @@ def _render_index_html(shortcuts: list[dict[str, str]]) -> str:
             color: #333;
         }}
         .result:hover {{ background: #ecf0f1; }}
+        .result-active {{ background: #d6eaf8; }}
+        .result-active:hover {{ background: #d6eaf8; }}
         .result-code {{
             font-weight: 600;
             color: #2980b9;
@@ -472,8 +474,23 @@ def _render_index_html(shortcuts: list[dict[str, str]]) -> str:
         const searchInput = document.getElementById('search');
         const resultsDiv = document.getElementById('results');
 
+        let currentMatches = [];
+        let activeIndex = -1;
+
         function truncate(str, max) {{
             return str.length > max ? str.substring(0, max) + '...' : str;
+        }}
+
+        function updateActive() {{
+            const nodes = resultsDiv.querySelectorAll('.result');
+            nodes.forEach(function(node, i) {{
+                if (i === activeIndex) {{
+                    node.classList.add('result-active');
+                    node.scrollIntoView({{ block: 'nearest' }});
+                }} else {{
+                    node.classList.remove('result-active');
+                }}
+            }});
         }}
 
         function render(matches) {{
@@ -481,24 +498,64 @@ def _render_index_html(shortcuts: list[dict[str, str]]) -> str:
                 resultsDiv.innerHTML = '<div class="empty">No matches found.</div>';
                 return;
             }}
-            resultsDiv.innerHTML = matches.map(function(s) {{
-                return '<a class="result" href="/' + s.short_code + '">'
+            resultsDiv.innerHTML = matches.map(function(s, i) {{
+                return '<a class="result" data-index="' + i + '" href="/'
+                    + s.short_code + '">'
                     + '<span class="result-code">' + s.short_code + '</span>'
                     + '<span class="result-url">' + truncate(s.url, 60) + '</span>'
                     + '</a>';
             }}).join('');
+            // Sync highlight when the mouse moves over a result.
+            resultsDiv.querySelectorAll('.result').forEach(function(node) {{
+                node.addEventListener('mousemove', function() {{
+                    activeIndex = parseInt(node.getAttribute('data-index'), 10);
+                    updateActive();
+                }});
+            }});
+        }}
+
+        function go(index) {{
+            if (index >= 0 && index < currentMatches.length) {{
+                window.location.href = '/' + currentMatches[index].short_code;
+            }}
         }}
 
         searchInput.addEventListener('input', function() {{
             const query = this.value.toLowerCase();
             if (!query) {{
+                currentMatches = [];
+                activeIndex = -1;
                 resultsDiv.innerHTML = '';
                 return;
             }}
-            const matches = shortcuts.filter(function(s) {{
+            currentMatches = shortcuts.filter(function(s) {{
                 return s.short_code.includes(query);
             }});
-            render(matches);
+            // Reset the highlight to the first match on every new query.
+            activeIndex = currentMatches.length > 0 ? 0 : -1;
+            render(currentMatches);
+            updateActive();
+        }});
+
+        searchInput.addEventListener('keydown', function(event) {{
+            if (currentMatches.length === 0) {{
+                return;
+            }}
+            if (event.key === 'ArrowDown') {{
+                event.preventDefault();
+                activeIndex = (activeIndex + 1) % currentMatches.length;
+                updateActive();
+            }} else if (event.key === 'ArrowUp') {{
+                event.preventDefault();
+                activeIndex = activeIndex <= 0
+                    ? currentMatches.length - 1
+                    : activeIndex - 1;
+                updateActive();
+            }} else if (event.key === 'Enter') {{
+                event.preventDefault();
+                // Fall back to the first match if nothing is highlighted.
+                go(activeIndex >= 0 ? activeIndex : 0);
+            }}
         }});
     </script>
 </body>
