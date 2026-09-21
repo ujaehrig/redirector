@@ -65,6 +65,17 @@ docker run --rm -v ./data:/data redirector \
   add heise https://www.heise.de --group engineering --public
 ```
 
+For a Docker Compose deployment, `scripts/manage.sh` wraps
+`redirector-manage` inside the running `redirector` container (falling
+back to a throwaway container when it is not running). All arguments are
+forwarded to the CLI:
+
+```bash
+./scripts/manage.sh list
+./scripts/manage.sh add heise https://www.heise.de
+./scripts/manage.sh disable heise
+```
+
 ## Endpoints
 
 ### Public (no auth required)
