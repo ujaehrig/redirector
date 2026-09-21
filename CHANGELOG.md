@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-09-21
+
+### Added
+
+- `scripts/manage.sh`, a wrapper that runs `redirector-manage` inside the
+  running Docker Compose container (falling back to a throwaway container
+  when the service is not running), forwarding all arguments to the CLI
+
+### Fixed
+
+- Version-tagged Docker images are now published on push to `main`: the
+  workflow reads the version from `pyproject.toml` and tags the image
+  accordingly, instead of relying on a `v*` tag build that never fired
+  because tags pushed with `GITHUB_TOKEN` do not trigger workflows
+
 ## [1.0.0] - 2026-09-21
 
 ### Added
