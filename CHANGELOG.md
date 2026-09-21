@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-09-21
+
+### Added
+
+- Keyboard navigation for the shortcut search UI: arrow up/down move a
+  highlight through the results and Enter follows the highlighted entry
+  (falling back to the first match), with mouse hover kept in sync
+- Build-specific version reporting for Docker images: the app reads
+  `APP_VERSION_FILE` at request time and the image bakes
+  `<semver>+g<short-sha>` into `/app/.version`
+- `org.opencontainers.image.revision` label recording the build commit,
+  populated from the `GIT_SHA` build arg passed by CI
+
 ## [0.4.0] - 2026-08-19
 
 ### Added
