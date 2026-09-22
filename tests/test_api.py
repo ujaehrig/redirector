@@ -394,6 +394,60 @@ class TestApiPatchRedirect:
         response = client.patch("/api/redirects/nonexistent", json={"enabled": False})
         assert response.status_code == 404
 
+    def test_updates_url(
+        self, seeded_repo: SqliteRedirectRepository, eng_user: User
+    ) -> None:
+        client = _make_client(seeded_repo, user=eng_user)
+        response = client.patch(
+            "/api/redirects/heise", json={"url": "https://heise.de/newsticker"}
+        )
+        assert response.status_code == 200
+        assert response.json()["url"] == "https://heise.de/newsticker"
+
+    def test_updates_url_preserves_enabled(
+        self, seeded_repo: SqliteRedirectRepository, eng_user: User
+    ) -> None:
+        client = _make_client(seeded_repo, user=eng_user)
+        response = client.patch(
+            "/api/redirects/heise", json={"url": "https://heise.de/x"}
+        )
+        assert response.status_code == 200
+        assert response.json()["enabled"] is True
+
+    def test_updates_url_and_enabled_together(
+        self, seeded_repo: SqliteRedirectRepository, eng_user: User
+    ) -> None:
+        client = _make_client(seeded_repo, user=eng_user)
+        response = client.patch(
+            "/api/redirects/heise",
+            json={"url": "https://heise.de/y", "enabled": False},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["url"] == "https://heise.de/y"
+        assert body["enabled"] is False
+
+    def test_url_update_requires_group_membership(
+        self, seeded_repo: SqliteRedirectRepository, eng_user: User
+    ) -> None:
+        client = _make_client(seeded_repo, user=eng_user)
+        response = client.patch(
+            "/api/redirects/private-mkt", json={"url": "https://evil.example"}
+        )
+        assert response.status_code == 403
+
+    def test_empty_patch_is_noop_ok(
+        self, seeded_repo: SqliteRedirectRepository, eng_user: User
+    ) -> None:
+        client = _make_client(seeded_repo, user=eng_user)
+        before = client.get("/api/redirects").json()
+        response = client.patch("/api/redirects/heise", json={})
+        assert response.status_code == 200
+        # Nothing changed
+        heise = next(r for r in before["redirects"] if r["short_code"] == "heise")
+        assert response.json()["url"] == heise["url"]
+        assert response.json()["enabled"] == heise["enabled"]
+
     def test_rejects_reserved_short_code(
         self, seeded_repo: SqliteRedirectRepository, eng_user: User
     ) -> None:

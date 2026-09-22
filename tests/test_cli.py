@@ -186,6 +186,39 @@ class TestCliRemove:
         assert "not found" in result.output.lower()
 
 
+class TestCliUpdate:
+    """Test the update command."""
+
+    def test_update_existing_entry(self, runner: CliRunner, seeded_db: str) -> None:
+        result = runner.invoke(
+            cli,
+            ["--db", seeded_db, "update", "heise", "https://heise.de/newsticker"],
+        )
+        assert result.exit_code == 0
+        assert "Updated" in result.output
+        # Confirm the new URL is listed
+        listing = runner.invoke(cli, ["--db", seeded_db, "list"])
+        assert "https://heise.de/newsticker" in listing.output
+
+    def test_update_normalizes_short_code(
+        self, runner: CliRunner, seeded_db: str
+    ) -> None:
+        result = runner.invoke(
+            cli,
+            ["--db", seeded_db, "update", "HEISE", "https://heise.de/x"],
+        )
+        assert result.exit_code == 0
+        assert "Updated" in result.output
+
+    def test_update_nonexistent_entry(self, runner: CliRunner, seeded_db: str) -> None:
+        result = runner.invoke(
+            cli,
+            ["--db", seeded_db, "update", "nonexistent", "https://x.example"],
+        )
+        assert result.exit_code != 0
+        assert "not found" in result.output.lower()
+
+
 class TestCliList:
     """Test the list command."""
 

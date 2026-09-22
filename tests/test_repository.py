@@ -403,6 +403,42 @@ class TestSqliteRedirectRepositorySetEnabled:
         assert seeded_repo.set_enabled("nonexistent", enabled=False) is False
 
 
+class TestSqliteRedirectRepositoryUpdateUrl:
+    """Test the update_url method."""
+
+    def test_updates_destination_url(
+        self, seeded_repo: SqliteRedirectRepository
+    ) -> None:
+        assert seeded_repo.update_url("heise", "https://heise.de/newsticker") is True
+        result = seeded_repo.get_redirect("heise")
+        assert result is not None
+        assert result.destination_url == "https://heise.de/newsticker"
+
+    def test_preserves_other_fields(
+        self, seeded_repo: SqliteRedirectRepository
+    ) -> None:
+        before = seeded_repo.get_redirect("google")
+        assert before is not None
+        seeded_repo.update_url("google", "https://www.google.de")
+        after = seeded_repo.get_redirect("google")
+        assert after is not None
+        assert after.status_code == before.status_code
+        assert after.owner_group == before.owner_group
+        assert after.public == before.public
+        assert after.enabled == before.enabled
+
+    def test_normalizes_short_code(self, seeded_repo: SqliteRedirectRepository) -> None:
+        assert seeded_repo.update_url("HEISE", "https://heise.de/x") is True
+        result = seeded_repo.get_redirect("heise")
+        assert result is not None
+        assert result.destination_url == "https://heise.de/x"
+
+    def test_returns_false_for_nonexistent(
+        self, seeded_repo: SqliteRedirectRepository
+    ) -> None:
+        assert seeded_repo.update_url("nonexistent", "https://x.example") is False
+
+
 class TestRedirectEntry:
     """Test the RedirectEntry dataclass."""
 

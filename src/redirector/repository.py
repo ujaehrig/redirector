@@ -111,6 +111,18 @@ class RedirectRepository(Protocol):
         """
         ...
 
+    def update_url(self, short_code: str, destination_url: str) -> bool:
+        """Update the destination URL of an existing redirect.
+
+        Args:
+            short_code: The short code to update.
+            destination_url: The new destination URL.
+
+        Returns:
+            True if updated, False if not found.
+        """
+        ...
+
 
 class SqliteRedirectRepository:
     """SQLite implementation of the redirect repository."""
@@ -318,6 +330,26 @@ class SqliteRedirectRepository:
         cursor = self.connection.execute(
             "UPDATE redirects SET enabled = ? WHERE short_code = ?",
             (int(enabled), short_code),
+        )
+        self.connection.commit()
+        return cursor.rowcount > 0
+
+    def update_url(self, short_code: str, destination_url: str) -> bool:
+        """Update the destination URL of an existing redirect.
+
+        The lookup normalizes the short code to lowercase.
+
+        Args:
+            short_code: The short code to update.
+            destination_url: The new destination URL.
+
+        Returns:
+            True if updated, False if not found.
+        """
+        normalized = short_code.lower()
+        cursor = self.connection.execute(
+            "UPDATE redirects SET destination_url = ? WHERE short_code = ?",
+            (destination_url, normalized),
         )
         self.connection.commit()
         return cursor.rowcount > 0

@@ -74,7 +74,8 @@ class CreateRedirectRequest(BaseModel):
 class PatchRedirectRequest(BaseModel):
     """Request body for updating a redirect."""
 
-    enabled: bool
+    enabled: bool | None = None
+    url: str | None = None
 
 
 class RedirectResponseModel(BaseModel):
@@ -270,7 +271,10 @@ def create_app(
                 content={"error": "Not authorized to manage this entry"},
             )
 
-        repository.set_enabled(short_code, enabled=body.enabled)
+        if body.url is not None:
+            repository.update_url(short_code, body.url)
+        if body.enabled is not None:
+            repository.set_enabled(short_code, enabled=body.enabled)
         updated = repository.get_redirect(short_code)
         assert updated is not None
         return JSONResponse(

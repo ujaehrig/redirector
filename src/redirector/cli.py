@@ -268,6 +268,38 @@ def remove(ctx: click.Context, short_code: str) -> None:
             conn.close()
 
 
+@cli.command()
+@click.argument("short_code")
+@click.argument("url")
+@click.pass_context
+def update(ctx: click.Context, short_code: str, url: str) -> None:
+    """Update the destination URL of an existing redirect."""
+    normalized = short_code.lower()
+
+    if ctx.obj["mode"] == "api":
+        response = httpx.patch(
+            f"{ctx.obj['api_url']}/api/redirects/{normalized}",
+            json={"url": url},
+            headers=_api_headers(ctx.obj["token"]),
+            timeout=10.0,
+        )
+        _handle_api_error(response)
+        click.echo(f"Updated: {normalized} -> {url}")
+    else:
+        conn = get_connection(ctx.obj["db_path"])
+        try:
+            cursor = conn.execute(
+                "UPDATE redirects SET destination_url = ? WHERE short_code = ?",
+                (url, normalized),
+            )
+            conn.commit()
+            if cursor.rowcount == 0:
+                _fail(f"Short code '{normalized}' not found")
+            click.echo(f"Updated: {normalized} -> {url}")
+        finally:
+            conn.close()
+
+
 @cli.command("list")
 @click.pass_context
 def list_entries(ctx: click.Context) -> None:
