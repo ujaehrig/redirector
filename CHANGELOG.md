@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-09-22
+
+### Added
+
+- `update` command to change an existing redirect's destination URL
+  without removing and re-adding it: `redirector-manage update <code>
+  <url>`, available in both local and API modes
+- `RedirectRepository.update_url` and support for an optional `url` field
+  on `PATCH /api/redirects/{code}` (alongside the now-optional `enabled`)
+- `docker-compose.yml` at the repository root for a ready-to-run Compose
+  deployment
+
+### Changed
+
+- `.gitignore` now excludes generated build and tooling artifacts
+  (`.aws-sam/`, `.coverage`, `.pytest_cache/`, `.ruff_cache/`)
+
 ## [1.1.0] - 2026-09-21
 
 ### Added
