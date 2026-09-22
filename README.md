@@ -73,6 +73,7 @@ forwarded to the CLI:
 ```bash
 ./scripts/manage.sh list
 ./scripts/manage.sh add heise https://www.heise.de
+./scripts/manage.sh update heise https://www.heise.de/newsticker
 ./scripts/manage.sh disable heise
 ```
 

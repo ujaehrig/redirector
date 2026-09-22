@@ -291,6 +291,41 @@ class TestCliApiModeEnable:
         assert "Enabled" in result.output
 
 
+class TestCliApiModeUpdate:
+    """Test update command in API mode."""
+
+    def test_updates_via_api(self, runner: CliRunner) -> None:
+        response_data = {
+            "short_code": "heise",
+            "url": "https://heise.de/newsticker",
+            "status_code": 302,
+            "owner_group": "engineering",
+            "public": False,
+            "enabled": True,
+        }
+        with patch("redirector.cli.httpx.patch") as mock_patch:
+            mock_patch.return_value = _mock_response(200, response_data)
+            result = runner.invoke(
+                cli,
+                [
+                    "--mode",
+                    "api",
+                    "--api-url",
+                    "http://localhost:8080",
+                    "--token",
+                    "t",
+                    "update",
+                    "heise",
+                    "https://heise.de/newsticker",
+                ],
+            )
+        assert result.exit_code == 0
+        assert "Updated" in result.output
+        # The URL must be sent in the PATCH payload
+        _, kwargs = mock_patch.call_args
+        assert kwargs["json"] == {"url": "https://heise.de/newsticker"}
+
+
 class TestCliApiModeErrorHandling:
     """Test error handling for non-JSON API responses."""
 
